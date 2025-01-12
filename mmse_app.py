@@ -1,4 +1,5 @@
 import os
+from venv import logger
 
 import streamlit as st
 import datetime
@@ -17,6 +18,8 @@ def init_session_state():
         st.session_state.responses = {}
     if 'exam_type' not in st.session_state:
         st.session_state.exam_type = None
+
+
 def cookie_test():
     st.subheader("Cookie Test")
     st.write("This test evaluates verbal fluency and description abilities.")
@@ -52,7 +55,39 @@ def cookie_test():
         st.subheader("Review Recording")
         st.audio(audio_filename)
 
-        # Volume control (manual playback volume control is typically done through the audio player UI)
+        # Send to Flask backend for analysis
+        if st.button("Analyze Recording"):
+            try:
+                # Get MMSE score from session state
+                mmse_score = st.session_state.get('mmse_score', 0)
+
+                # Prepare the files and data for the request
+                files = {'audio': open(audio_filename, 'rb')}
+                data = {'mmse': str(mmse_score)}
+
+                # Make request to Flask backend
+                response = requests.post('http://localhost:5000/analyze',
+                                         files=files,
+                                         data=data)
+
+                if response.status_code == 200:
+                    result = response.json()
+
+                    # Store results in session state
+                    st.session_state.diagnosis = result['diagnosis']
+                    st.session_state.stage = result['stage']
+
+                    # Display initial results
+                    st.success("Analysis completed successfully!")
+
+                    # Enable the Complete Test button
+                    st.session_state.analysis_complete = True
+                else:
+                    st.error(f"Analysis failed: {response.json().get('error', 'Unknown error')}")
+
+            except Exception as e:
+                st.error(f"Error during analysis: {str(e)}")
+                logger.error(f"Analysis error: {str(e)}")
 
         # Download button
         with open(audio_filename, "rb") as file:
@@ -74,11 +109,82 @@ def cookie_test():
         """)
 
     # Navigation
-    if st.button("Complete Test"):
+    if st.button("Complete Test") and st.session_state.get('analysis_complete', False):
         if 'completed_sections' not in st.session_state:
             st.session_state.completed_sections = set()
         st.session_state.completed_sections.add('cookie_test')
         next_page()
+    elif st.button("Complete Test"):
+        st.warning("Please analyze the recording before proceeding.")
+
+
+def display_prognosis():
+    st.title("Prognosis Report")
+
+    if 'diagnosis' not in st.session_state or 'stage' not in st.session_state:
+        st.error("No diagnosis available. Please complete the cookie test first.")
+        return
+
+    # Display diagnosis information
+    st.header("Diagnosis Results")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Diagnosis", st.session_state.diagnosis)
+    with col2:
+        st.metric("Stage", st.session_state.stage)
+
+    # Provide detailed information based on diagnosis and stage
+    st.subheader("Detailed Assessment")
+
+    if st.session_state.diagnosis == "No Dementia":
+        st.write("""
+        Based on the analysis of your cookie test and MMSE score, no significant cognitive impairment 
+        was detected. However, regular cognitive check-ups are recommended for early detection of any 
+        future changes.
+        """)
+    else:
+        stage_info = {
+            "Stage 1 (Mild)": """
+            - Early stage of cognitive decline
+            - Minor memory problems and cognitive changes
+            - Fully independent in daily activities
+            - Excellent candidate for early intervention
+            - Regular monitoring and cognitive exercises recommended
+            """,
+            "Stage 2 (Mild to Moderate)": """
+            - Increasing memory difficulties
+            - Some challenges with complex tasks
+            - Generally independent but may need occasional assistance
+            - Important to start planning for future care needs
+            - Benefit from structured daily routines
+            """,
+            "Stage 3 (Moderate)": """
+            - More pronounced memory and communication challenges
+            - Increased difficulty with daily tasks
+            - Requires regular assistance and supervision
+            - Important to establish comprehensive support systems
+            - Safety measures should be implemented
+            """,
+            "Stage 4 (Severe)": """
+            - Significant cognitive impairment
+            - Requires extensive support for daily activities
+            - Close medical supervision needed
+            - Focus on quality of life and comfort
+            - Full-time care typically required
+            """
+        }
+
+        st.markdown(stage_info.get(st.session_state.stage, "Stage information not available"))
+
+    # Recommendations section
+    st.subheader("Recommendations")
+    st.write("""
+    1. Schedule a follow-up with a healthcare provider to discuss these results
+    2. Consider lifestyle modifications that may help maintain cognitive function
+    3. Explore available support groups and resources
+    4. Plan regular cognitive assessments to monitor any changes
+    """)
 
 def next_page():
     st.session_state.page += 1
