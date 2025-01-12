@@ -1,6 +1,6 @@
 import os
 from venv import logger
-
+import sklearn
 import streamlit as st
 import datetime
 import requests
@@ -56,10 +56,11 @@ def cookie_test():
         st.audio(audio_filename)
 
         # Send to Flask backend for analysis
-        if st.button("Analyze Recording"):
+        if st.button("Analyze Recording",key="Analyze Recording"):
             try:
                 # Get MMSE score from session state
-                mmse_score = st.session_state.get('mmse_score', 0)
+                mmse_score = st.session_state.score
+                print("mmse", mmse_score)
 
                 # Prepare the files and data for the request
                 files = {'audio': open(audio_filename, 'rb')}
@@ -79,6 +80,7 @@ def cookie_test():
 
                     # Display initial results
                     st.success("Analysis completed successfully!")
+                    display_prognosis()
 
                     # Enable the Complete Test button
                     st.session_state.analysis_complete = True
@@ -95,7 +97,8 @@ def cookie_test():
                 label="Download Recording",
                 data=file,
                 file_name=os.path.basename(audio_filename),
-                mime="audio/wav"
+                mime="audio/wav",
+                key = "download_recording"
             )
 
     # Error handling and instructions
@@ -109,12 +112,12 @@ def cookie_test():
         """)
 
     # Navigation
-    if st.button("Complete Test") and st.session_state.get('analysis_complete', False):
+    if st.button("Complete Test", key ="complete_test_1") and st.session_state.get('analysis_complete', False):
         if 'completed_sections' not in st.session_state:
             st.session_state.completed_sections = set()
         st.session_state.completed_sections.add('cookie_test')
         next_page()
-    elif st.button("Complete Test"):
+    elif st.button("Complete Test",key ="complete_test_2") :
         st.warning("Please analyze the recording before proceeding.")
 
 

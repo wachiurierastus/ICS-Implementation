@@ -10,7 +10,6 @@ import sys
 import wave
 from datetime import datetime
 from pathlib import Path
-
 import numpy as np
 from mutagen.mp3 import MP3
 

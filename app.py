@@ -43,7 +43,7 @@ def analyze_audio():
 
         file = request.files['audio']
         mmse_score = int(request.form.get('mmse', 0))
-
+        print("mmse_app:",mmse_score)
         if file.filename == '':
             return jsonify({'error': 'No selected file'}), 400
 
